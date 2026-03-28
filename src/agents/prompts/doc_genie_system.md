@@ -17,6 +17,6 @@ Inspect the provided T-SQL script and generate documentation for any new databas
 - Do not invent business logic; describe only what is observable in the SQL.
 
 ## Output Format
-Return a JSON object with two keys:
+You MUST respond with ONLY a JSON object — no markdown fences, no explanation, no extra text. The JSON must have exactly two keys:
 - `documentation`: a Markdown string.
-- `extended_properties_sql`: an array of `sp_addextendedproperty` T-SQL statements (empty array if none).
+- `extended_properties_sql`: an array of `sp_addextendedproperty` T-SQL strings (empty array if none).

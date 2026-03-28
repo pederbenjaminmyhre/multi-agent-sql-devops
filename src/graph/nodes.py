@@ -73,6 +73,7 @@ def skeptic_node(state: ReviewState) -> dict:
         cleaned_sql=state.get("cleaned_sql", ""),
         findings=all_findings,
         index_suggestions=state.get("index_suggestions", []),
+        schema_context=state.get("schema_context"),
     )
     entries = list(state.get("changelog_entries", []))
     entries.append(f"[Skeptic] Verdict: {result['verdict']} — {result['reasoning']}")
