@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cost Management — Multi-Agent SQL DevOps</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; color: #1e293b; background: #f8fafc; line-height: 1.75; padding: 2.5rem; max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; color: #0f172a; border-bottom: 3px solid #3b82f6; padding-bottom: .4rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.25rem; color: #1e40af; margin: 1.75rem 0 .5rem; }
+    h3 { font-size: 1.05rem; color: #334155; margin: 1.2rem 0 .4rem; }
+    p { margin-bottom: .9rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: .9rem; }
+    th, td { text-align: left; padding: .6rem .8rem; border: 1px solid #e2e8f0; }
+    th { background: #1e3a5f; color: #fff; font-weight: 600; }
+    tr:nth-child(even) { background: #f1f5f9; }
+    code { font-family: "Cascadia Code", Consolas, monospace; background: #e2e8f0; padding: .1rem .35rem; border-radius: 3px; font-size: .88em; }
+    .callout { border-left: 4px solid; border-radius: 6px; padding: 1rem 1.25rem; margin: 1.25rem 0; font-size: .93rem; }
+    .callout-green { border-color: #22c55e; background: #f0fdf4; }
+    .callout-amber { border-color: #f59e0b; background: #fffbeb; }
+    .callout-red { border-color: #ef4444; background: #fef2f2; }
+    .callout strong { display: block; margin-bottom: .25rem; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 1rem 1.25rem; border-radius: 8px; overflow-x: auto; margin: .75rem 0 1.25rem; font-size: .85rem; }
+    ul, ol { margin: .5rem 0 1rem 1.5rem; }
+    li { margin-bottom: .35rem; }
+    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; color: #64748b; font-size: .8rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Cost Management</h1>
+
+  <p>This project runs on a personal Azure subscription. Every architectural decision was made with cost efficiency as a primary constraint, without compromising the system's production-grade characteristics.</p>
+
+  <h2>Monthly Cost Breakdown</h2>
+
+  <table>
+    <thead><tr><th>Resource</th><th>Pricing Model</th><th>Est. Monthly Cost</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Container Registry (Basic)</td><td>Fixed</td><td>~$5.00</td><td>Only fixed cost; required to host the Docker image</td></tr>
+      <tr><td>Container Apps</td><td>Pay-per-use</td><td>$0 – $2.00</td><td>Scale-to-zero; no cost when idle</td></tr>
+      <tr><td>Cosmos DB (Serverless)</td><td>Pay-per-request</td><td>&lt; $1.00</td><td>Near-zero at portfolio traffic levels</td></tr>
+      <tr><td>Key Vault</td><td>Per-operation</td><td>~$0.00</td><td>$0.03 per 10K operations; negligible</td></tr>
+      <tr><td>Application Insights</td><td>Per-GB ingestion</td><td>$0 – $3.00</td><td>First 5 GB/month free</td></tr>
+      <tr><td>Log Analytics</td><td>Per-GB ingestion</td><td>$1 – $3.00</td><td>Minimal log volume at low traffic</td></tr>
+      <tr><td><strong>OpenAI API</strong></td><td><strong>Per-token</strong></td><td><strong>$0.10 – $0.50 per review</strong></td><td><strong>Largest variable cost; 4-12 LLM calls per review</strong></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-green">
+    <strong>Estimated total at portfolio/demo usage: $7 – $12/month</strong>
+    At low traffic (a few demos per week), total Azure costs stay under $10/month. The OpenAI API is the only cost that scales with usage.
+  </div>
+
+  <h2>Cost Measures Implemented</h2>
+
+  <h3>1. Scale-to-Zero Compute</h3>
+  <p>Azure Container Apps is configured with <code>minReplicas: 0</code> and <code>maxReplicas: 2</code>. When no requests are in flight, the container is deallocated entirely. There is zero compute cost during idle periods. Cold starts add 2-5 seconds, which is acceptable since the LLM calls themselves take 10-30 seconds.</p>
+
+  <h3>2. Serverless Database</h3>
+  <p>Cosmos DB uses the Serverless capacity mode instead of Provisioned Throughput. Provisioned mode requires paying for reserved RU/s even when idle. Serverless charges only for the request units actually consumed, with no minimum. At portfolio traffic this reduces database costs from ~$24/month to under $1/month.</p>
+
+  <h3>3. Basic-Tier Container Registry</h3>
+  <p>ACR Basic ($5/month) provides 10 GB storage and sufficient throughput for a single-image portfolio project. The Standard tier ($20/month) and Premium tier ($50/month) offer geo-replication and other features that are unnecessary here.</p>
+
+  <h3>4. Iteration Cap on Critique Loop</h3>
+  <p>Each critique-revise loop iteration costs 4 LLM calls. Without a cap, a pathologically adversarial input could trigger unlimited loops. The configurable <code>max_iterations</code> (default: 3) limits each review to a maximum of 12 LLM calls, bounding the per-review OpenAI cost at roughly $0.50.</p>
+
+  <h3>5. Schema Context Injection (Not Tool Calls)</h3>
+  <p>Schema information is injected directly into prompts rather than retrieved via tool calls. Each tool call that the LLM initiates adds a round-trip (prompt → tool call → tool response → LLM continuation), doubling the token usage. Direct injection eliminates this overhead.</p>
+
+  <h2>OpenAI API Cost Analysis</h2>
+  <p>The LLM is the dominant cost driver. Here is the per-review breakdown:</p>
+
+  <table>
+    <thead><tr><th>Scenario</th><th>LLM Calls</th><th>Approx. Cost (gpt-4o)</th></tr></thead>
+    <tbody>
+      <tr><td>Single pass (approved on first try)</td><td>4</td><td>~$0.10 – $0.15</td></tr>
+      <tr><td>One rejection + re-pass</td><td>8</td><td>~$0.20 – $0.30</td></tr>
+      <tr><td>Max iterations (3 loops)</td><td>12</td><td>~$0.40 – $0.50</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-amber">
+    <strong>Cost Reduction Option: Switch to gpt-4o-mini</strong>
+    Changing <code>LLM_MODEL=gpt-4o-mini</code> in the environment reduces per-review costs by approximately 10x with a modest quality tradeoff. For portfolio demos, the difference in output quality is negligible.
+  </div>
+
+  <h2>Best Practices for Ongoing Cost Control</h2>
+
+  <h3>Set an Azure Budget Alert</h3>
+  <p>Create a budget in the Azure Portal to receive email alerts when spending approaches a threshold:</p>
+  <ol>
+    <li>Navigate to <strong>Cost Management + Billing</strong> in the Azure Portal.</li>
+    <li>Select <strong>Budgets</strong> → <strong>Add</strong>.</li>
+    <li>Set a monthly budget (e.g., $15) scoped to <code>rg-sql-devops-portfolio</code>.</li>
+    <li>Configure alerts at 80% and 100% of the budget.</li>
+  </ol>
+
+  <h3>Tear Down When Not Demoing</h3>
+  <p>If the project will be idle for an extended period, delete the resource group to eliminate all costs:</p>
+  <pre><code>az group delete --name rg-sql-devops-portfolio --yes --no-wait</code></pre>
+  <p>Redeploying takes about 5 minutes with <code>bash infra/deploy.sh</code>. The code, configuration, and Docker image can be rebuilt from the repository at any time.</p>
+
+  <h3>Monitor Actual Spend</h3>
+  <p>Check real costs in the Azure Portal:</p>
+  <ol>
+    <li>Navigate to <strong>Cost Management</strong> → <strong>Cost analysis</strong>.</li>
+    <li>Scope to <code>rg-sql-devops-portfolio</code>.</li>
+    <li>Group by <strong>Resource</strong> to see per-service breakdown.</li>
+  </ol>
+
+  <h3>Monitor OpenAI Usage</h3>
+  <p>Track LLM costs separately at <strong>platform.openai.com/usage</strong>. Set a monthly spend limit in the OpenAI dashboard under <strong>Settings → Limits</strong>.</p>
+
+  <h2>Cost Comparison: With vs. Without This System</h2>
+  <table>
+    <thead><tr><th>Metric</th><th>Manual Review</th><th>Agent Pipeline</th></tr></thead>
+    <tbody>
+      <tr><td>Cost per review</td><td>$50–$150 (DBA hourly rate × review time)</td><td>$0.10–$0.50 (LLM tokens)</td></tr>
+      <tr><td>Turnaround</td><td>Hours to days</td><td>30–60 seconds</td></tr>
+      <tr><td>Scales with team size</td><td>Linearly (more devs = more DBA hours)</td><td>Constant (same cost regardless of team size)</td></tr>
+      <tr><td>Consistency</td><td>Varies by reviewer</td><td>Identical standards every time</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-green">
+    <strong>Bottom Line</strong>
+    At $7–12/month for infrastructure and $0.10–0.50 per review, this system provides the equivalent of a junior DBA reviewer at a fraction of the cost of a single hour of human review time.
+  </div>
+
+  <footer>
+    Multi-Agent Inner Loop DevOps for SQL Server — Cost Management
+  </footer>
+
+</body>
+</html>

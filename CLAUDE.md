@@ -94,7 +94,8 @@ Autonomous multi-agent T-SQL review pipeline deployed to Azure. Agents lint, per
 ├── .dockerignore
 ├── pyproject.toml                   # Project metadata, dependencies, tool config
 ├── .env.example                     # Template for local dev environment variables
-└── .gitignore
+├── .gitignore
+└── test_review.sql                  # Test SQL file used to validate the PR review workflow
 ```
 
 ---
@@ -132,11 +133,12 @@ Autonomous multi-agent T-SQL review pipeline deployed to Azure. Agents lint, per
 - Create the full directory structure shown above
 - Create `.env.example` with placeholder values:
   ```
-  LLM_PROVIDER=anthropic          # or "openai"
+  LLM_PROVIDER=openai             # or "anthropic"
   LLM_API_KEY=sk-...
-  LLM_MODEL=claude-sonnet-4-6
+  LLM_MODEL=gpt-4o
   COSMOS_ENDPOINT=               # blank for local dev (uses in-memory state)
   COSMOS_KEY=
+  COSMOS_DATABASE=sql-review-db
   KEYVAULT_URL=
   APPINSIGHTS_CONNECTION_STRING=
   MAX_CRITIQUE_LOOPS=3
@@ -165,17 +167,26 @@ class ReviewState(TypedDict):
 Each agent in `src/agents/` follows this pattern:
 1. Load its system prompt from `src/agents/prompts/`
 2. Accept the current `ReviewState`
-3. Invoke the LLM with relevant tools bound
-4. Return state updates (never the full state)
+3. Invoke the LLM directly (no tool binding — agents return pure JSON, tools are called in code)
+4. Parse the JSON response using `normalize_severity()` to handle non-standard LLM severity strings
+5. Return state updates (never the full state)
+
+**Important — LLM Integration Pattern:**
+Agents do NOT use `llm.bind_tools()`. When tools are bound, LLMs return tool-call objects instead of JSON content, which breaks parsing. Instead:
+- System prompts instruct the LLM to return raw JSON (no markdown fences)
+- Schema context and tool outputs are injected directly into prompts
+- Tools like `format_sql` and `schema_checker` are called in Python code after the LLM responds
+- `normalize_severity()` in `src/models/agent_finding.py` maps non-standard severity strings (e.g., "high", "moderate", "critical") to the `error`/`warning`/`info` enum
+- `line_ref` values from the LLM are coerced from int to str
 
 **Agent A — Linter** (`src/agents/linter.py`):
-- Tools: `sql_formatter`
+- Post-processes with: `format_sql` tool (called in code, not bound to LLM)
 - Scans for: `SELECT *`, missing `NOLOCK`, implicit conversions, deprecated syntax (`SET ROWCOUNT`, `@@IDENTITY`), missing `SET NOCOUNT ON` in procedures
 - Output: List of `Finding` objects with severity (error/warning/info), line reference, message, and suggested fix
 - Rewrites the SQL with fixes applied
 
 **Agent B — Performance Critic** (`src/agents/performance.py`):
-- Tools: `schema_checker`
+- Receives schema context as a human-readable summary injected into the prompt
 - Analyzes: JOINs on unindexed columns, missing covering indexes, `LIKE '%...'` leading-wildcard scans, parameter sniffing risks on skewed columns, missing statistics
 - Output: List of `Finding` objects + `CREATE INDEX` suggestions as T-SQL
 
@@ -186,7 +197,7 @@ Each agent in `src/agents/` follows this pattern:
 - Only runs when new objects are detected (skip if pure DML/query changes)
 
 **Agent D — Skeptic** (`src/agents/skeptic.py`):
-- Tools: `schema_checker` (to verify suggested indexes/changes are valid)
+- Receives schema context (indexes, FKs) as a summary injected into the prompt
 - Reviews: All findings and proposed fixes from Agents A & B
 - Checks: Would any fix break existing FK constraints? Does a suggested index already exist? Does a rewrite change query semantics?
 - Output: Verdict (`"approved"` or `"rejected"`) + reasoning
@@ -195,8 +206,8 @@ Each agent in `src/agents/` follows this pattern:
 #### Step 1.4: Build Agent Tools
 **Schema Checker** (`src/tools/schema_checker.py`):
 - Loads `Schema.json` (tables, columns with types, existing indexes, FK relationships)
-- Functions: `get_table_columns(table_name)`, `get_indexes(table_name)`, `check_column_exists(table, column)`, `get_foreign_keys(table_name)`
-- Registered as LangChain `@tool` decorated functions
+- Functions: `get_table_columns(table_name)`, `get_indexes(table_name)`, `check_column_indexed(table, column)`, `get_foreign_keys(table_name)`
+- Registered as LangChain `@tool` decorated functions (but called directly in code, not bound to LLMs)
 
 **SQL Formatter** (`src/tools/sql_formatter.py`):
 - Uses `sqlparse` library for parsing
@@ -385,6 +396,11 @@ on:
   pull_request:
     paths: ['**/*.sql']
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   review:
     runs-on: ubuntu-latest
@@ -510,6 +526,40 @@ POST /review
   }
 }
 ```
+
+---
+
+## Live Deployment
+
+| Item | Value |
+|---|---|
+| **GitHub Repo** | `pederbenjaminmyhre/multi-agent-sql-devops` |
+| **API URL** | `https://ca-sql-review.happybay-c8b24a7e.eastus.azurecontainerapps.io` |
+| **Health Check** | `GET /health` |
+| **Review Endpoint** | `POST /review` |
+| **Swagger Docs** | `/docs` |
+| **Resource Group** | `rg-sql-devops-portfolio` |
+| **Region** | East US |
+| **ACR** | `acrsqldevops.azurecr.io` |
+
+### Azure Resource Names
+
+| Resource | Name |
+|---|---|
+| Container Registry | `acrsqldevops` |
+| Container Apps Environment | `cae-sqldevops` |
+| Container App | `ca-sql-review` |
+| Cosmos DB | `cosmos-sqldevops` |
+| Key Vault | `kv-sqldevops` |
+| Application Insights | `appi-sqldevops` |
+| Log Analytics | `log-sqldevops` |
+
+### Cost Notes
+- Container Apps uses **scale-to-zero** (min replicas: 0) — no compute cost when idle
+- Cosmos DB is **serverless** — pay-per-request only
+- ACR Basic tier is the only fixed cost (~$5/month)
+- **OpenAI API is the largest variable cost** (~$0.10-0.50 per review with gpt-4o)
+- To tear down all resources: `az group delete --name rg-sql-devops-portfolio --yes`
 
 ---
 

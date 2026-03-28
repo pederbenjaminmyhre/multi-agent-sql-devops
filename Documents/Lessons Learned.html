@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lessons Learned — Multi-Agent SQL DevOps</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; color: #1e293b; background: #f8fafc; line-height: 1.75; padding: 2.5rem; max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; color: #0f172a; border-bottom: 3px solid #3b82f6; padding-bottom: .4rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.25rem; color: #1e40af; margin: 1.75rem 0 .5rem; }
+    p { margin-bottom: .9rem; }
+    .lesson { border-left: 4px solid; border-radius: 6px; padding: 1rem 1.25rem; margin: 1.25rem 0; font-size: .93rem; }
+    .lesson-red { border-color: #ef4444; background: #fef2f2; }
+    .lesson-amber { border-color: #f59e0b; background: #fffbeb; }
+    .lesson-green { border-color: #22c55e; background: #f0fdf4; }
+    .lesson-blue { border-color: #3b82f6; background: #eff6ff; }
+    .lesson strong { display: block; margin-bottom: .25rem; font-size: .95rem; }
+    .lesson .tag { display: inline-block; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: .15rem .5rem; border-radius: 999px; margin-bottom: .4rem; }
+    .tag-arch { background: #dbeafe; color: #1e40af; }
+    .tag-llm { background: #fce7f3; color: #9d174d; }
+    .tag-ops { background: #dcfce7; color: #166534; }
+    .tag-test { background: #fef3c7; color: #92400e; }
+    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; color: #64748b; font-size: .8rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Lessons Learned</h1>
+
+  <p>This document captures the key technical lessons learned during the design, implementation, and deployment of the Multi-Agent SQL Review Pipeline. These insights are intended to inform future projects involving agentic AI, cloud-native deployment, and CI/CD integration.</p>
+
+  <h2>LLM Integration</h2>
+
+  <div class="lesson lesson-red">
+    <span class="tag tag-llm">LLM Behavior</span>
+    <strong>Do not bind tools to the LLM when you need structured JSON output.</strong>
+    When LangChain tools are bound to an LLM via <code>llm.bind_tools()</code>, the model returns tool-call objects instead of text content. This made the <code>.content</code> field empty, causing every agent to report "unparseable output." The fix was to remove tool binding entirely and instead call tools in Python code after the LLM returns its JSON response. System prompts were updated to mandate raw JSON output with no markdown fences.
+  </div>
+
+  <div class="lesson lesson-red">
+    <span class="tag tag-llm">LLM Behavior</span>
+    <strong>LLMs do not respect enum constraints — normalize aggressively.</strong>
+    Despite explicit instructions to use "error", "warning", or "info", the LLM returned severity values like "high", "moderate", "critical", and "informational." This crashed Pydantic validation. The solution was a <code>normalize_severity()</code> function that maps any string the LLM produces to the three-value enum, with a fallback to "warning" for unknown values. Similarly, <code>line_ref</code> was returned as an integer instead of a string — type coercion at the parsing boundary was essential.
+  </div>
+
+  <div class="lesson lesson-amber">
+    <span class="tag tag-llm">LLM Behavior</span>
+    <strong>LLMs wrap JSON in markdown fences even when told not to.</strong>
+    Even with "no markdown fences" in the system prompt, models frequently return <code>```json ... ```</code> wrappers. Every agent parser must strip these fences before attempting <code>json.loads()</code>. This is defensive code that should be standard in any LLM-to-JSON pipeline.
+  </div>
+
+  <h2>Architecture &amp; Design</h2>
+
+  <div class="lesson lesson-green">
+    <span class="tag tag-arch">Architecture</span>
+    <strong>State-machine orchestration is the right abstraction for multi-agent systems.</strong>
+    LangGraph's <code>StateGraph</code> with conditional edges made the critique-revise loop trivial to implement and easy to reason about. Each node is a pure function that takes state and returns partial updates. The Skeptic's verdict deterministically controls routing — no prompt engineering required for flow control.
+  </div>
+
+  <div class="lesson lesson-green">
+    <span class="tag tag-arch">Architecture</span>
+    <strong>Inject context into prompts rather than using tool calls for read-only data.</strong>
+    The Performance and Skeptic agents need schema information (indexes, foreign keys). Rather than having the LLM call schema-checker tools (adding latency and non-determinism), the schema summary is built in Python and injected directly into the prompt. This is faster, more reliable, and cheaper (fewer round-trips).
+  </div>
+
+  <div class="lesson lesson-blue">
+    <span class="tag tag-arch">Architecture</span>
+    <strong>Partial state updates prevent subtle bugs in multi-agent pipelines.</strong>
+    Each node function returns only the keys it modifies. Early in development, returning the full state from one node would accidentally overwrite fields set by a previous node. LangGraph's reducer pattern — where returned keys are merged into state — enforces clean boundaries.
+  </div>
+
+  <h2>Testing</h2>
+
+  <div class="lesson lesson-green">
+    <span class="tag tag-test">Testing</span>
+    <strong>Mock the LLM at the response level, not the framework level.</strong>
+    The <code>FakeLLM</code> fixture returns a pre-set JSON string from its <code>invoke()</code> method. This tests the full parsing pipeline (JSON extraction, severity normalization, type coercion) without any LLM calls. Mocking at the LangChain framework level would have hidden the exact bugs that surfaced during live testing.
+  </div>
+
+  <div class="lesson lesson-amber">
+    <span class="tag tag-test">Testing</span>
+    <strong>Live LLM tests are essential — mocks cannot catch output-format drift.</strong>
+    All 12 unit tests passed with mocks, but the first live call failed because the LLM returned tool-call objects instead of JSON. A separate live integration test (even manual) is necessary to validate the real LLM contract.
+  </div>
+
+  <h2>Deployment &amp; Operations</h2>
+
+  <div class="lesson lesson-amber">
+    <span class="tag tag-ops">Operations</span>
+    <strong>Azure CLI has persistent TLS issues on Windows that require workarounds.</strong>
+    The Azure CLI's internal Python HTTP client encountered <code>ConnectionResetError (10054)</code> on every long-running ARM operation (Bicep deployments, container updates, ACR builds). Short operations (group show, resource list) worked fine. The workaround was using <code>curl</code> or Python's <code>urllib</code> with <code>ssl.CERT_NONE</code> for large payloads, and <code>docker push</code> instead of <code>az acr build</code> for image uploads. Setting <code>AZURE_CLI_DISABLE_CONNECTION_VERIFICATION=1</code> helped for login but not for deployments.
+  </div>
+
+  <div class="lesson lesson-red">
+    <span class="tag tag-ops">Operations</span>
+    <strong>GitHub Actions workflows need explicit permissions to post PR comments.</strong>
+    The default <code>GITHUB_TOKEN</code> in Actions has read-only permissions. The workflow failed with "Resource not accessible by integration" (403) when trying to post a comment. Adding a <code>permissions</code> block with <code>pull-requests: write</code> and <code>issues: write</code> resolved this.
+  </div>
+
+  <div class="lesson lesson-blue">
+    <span class="tag tag-ops">Operations</span>
+    <strong>Build the Docker image before deploying the Container App.</strong>
+    The Bicep template creates the Container App referencing an image that doesn't exist yet in ACR. This causes the initial deployment to partially fail. The image must be pushed first, then the Container App updated. A two-phase deploy (infra first, image second) is the reliable pattern.
+  </div>
+
+  <div class="lesson lesson-green">
+    <span class="tag tag-ops">Operations</span>
+    <strong>Scale-to-zero is viable for portfolio projects with no cold-start penalty that matters.</strong>
+    Azure Container Apps with min replicas set to 0 incurs zero compute cost when idle. Cold starts add 2-5 seconds on the first request, which is acceptable for a review pipeline where the LLM calls themselves take 10-30 seconds.
+  </div>
+
+  <footer>
+    Multi-Agent Inner Loop DevOps for SQL Server — Lessons Learned
+  </footer>
+
+</body>
+</html>

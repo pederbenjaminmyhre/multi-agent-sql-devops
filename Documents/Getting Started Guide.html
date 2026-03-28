@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Getting Started Guide — Multi-Agent SQL DevOps</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; color: #1e293b; background: #f8fafc; line-height: 1.75; padding: 2.5rem; max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; color: #0f172a; border-bottom: 3px solid #3b82f6; padding-bottom: .4rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.25rem; color: #1e40af; margin: 1.75rem 0 .5rem; }
+    h3 { font-size: 1.05rem; color: #334155; margin: 1.2rem 0 .4rem; }
+    p { margin-bottom: .9rem; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 1rem 1.25rem; border-radius: 8px; overflow-x: auto; margin: .75rem 0 1.25rem; font-size: .85rem; line-height: 1.6; }
+    code { font-family: "Cascadia Code", Consolas, monospace; }
+    p code, li code { background: #e2e8f0; padding: .1rem .35rem; border-radius: 3px; font-size: .88em; }
+    .callout { border-left: 4px solid #22c55e; background: #f0fdf4; padding: 1rem 1.25rem; border-radius: 6px; margin: 1.25rem 0; font-size: .93rem; }
+    .callout-amber { border-left-color: #f59e0b; background: #fffbeb; }
+    .callout strong { display: block; margin-bottom: .25rem; }
+    ol, ul { margin: .5rem 0 1rem 1.5rem; }
+    li { margin-bottom: .4rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.25rem; font-size: .9rem; }
+    th, td { text-align: left; padding: .55rem .75rem; border: 1px solid #e2e8f0; }
+    th { background: #1e3a5f; color: #fff; font-weight: 600; }
+    tr:nth-child(even) { background: #f1f5f9; }
+    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; color: #64748b; font-size: .8rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Getting Started Guide</h1>
+
+  <h2>Prerequisites</h2>
+  <ul>
+    <li>Python 3.12+</li>
+    <li>An OpenAI API key (or Anthropic API key)</li>
+    <li>Docker Desktop (for container builds)</li>
+    <li>Git and GitHub CLI (<code>gh</code>)</li>
+  </ul>
+
+  <h2>Use Case 1: Run a Local Review</h2>
+  <p>Review a SQL script locally without deploying anything.</p>
+
+  <h3>Step 1 — Clone and install</h3>
+  <pre><code>git clone https://github.com/pederbenjaminmyhre/multi-agent-sql-devops.git
+cd multi-agent-sql-devops
+python -m venv .venv
+source .venv/Scripts/activate    # Windows
+# source .venv/bin/activate      # macOS/Linux
+pip install -e ".[dev]"</code></pre>
+
+  <h3>Step 2 — Configure environment</h3>
+  <pre><code>cp .env.example .env
+# Edit .env and set your API key:
+#   LLM_PROVIDER=openai
+#   LLM_API_KEY=sk-your-key-here
+#   LLM_MODEL=gpt-4o</code></pre>
+
+  <h3>Step 3 — Start the server</h3>
+  <pre><code>uvicorn src.main:app --reload</code></pre>
+  <p>The API is now running at <code>http://localhost:8000</code>. Visit <code>/docs</code> for the interactive Swagger UI.</p>
+
+  <h3>Step 4 — Submit a review</h3>
+  <pre><code>curl -X POST http://localhost:8000/review \
+  -H "Content-Type: application/json" \
+  -d '{"sql": "SELECT * FROM Orders WHERE Status = '\''Shipped'\''", "max_iterations": 3}'</code></pre>
+
+  <p>The response is a JSON report with findings, cleaned SQL, documentation, and a changelog.</p>
+
+  <h2>Use Case 2: Automatic PR Reviews (GitHub Actions)</h2>
+  <p>This is the primary use case — the system reviews SQL changes automatically when a developer opens a pull request.</p>
+
+  <h3>How it works</h3>
+  <ol>
+    <li>A developer creates a branch and adds or modifies a <code>.sql</code> file.</li>
+    <li>They open a pull request against <code>main</code>.</li>
+    <li>GitHub Actions detects the <code>.sql</code> file change and triggers the <strong>SQL Review Agent</strong> workflow.</li>
+    <li>The workflow sends the SQL to the review API hosted on Azure.</li>
+    <li>The API runs all four agents (Linter, Performance, Doc-Genie, Skeptic) with critique-revise looping.</li>
+    <li>The workflow posts a formatted review comment on the PR with a findings table.</li>
+    <li>If any finding has severity <code>error</code>, the workflow fails and blocks the merge.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>Try it yourself</strong>
+    Create a branch, add a <code>.sql</code> file with intentional flaws (e.g., <code>SELECT *</code>, missing <code>SET NOCOUNT ON</code>), and open a PR. The review comment will appear within 30-60 seconds.
+  </div>
+
+  <h2>Use Case 3: Interactive Testing via Swagger</h2>
+  <p>The fastest way to experiment with the API.</p>
+  <ol>
+    <li>Open <code>https://ca-sql-review.happybay-c8b24a7e.eastus.azurecontainerapps.io/docs</code> in your browser.</li>
+    <li>Expand the <strong>POST /review</strong> endpoint.</li>
+    <li>Click <strong>Try it out</strong>.</li>
+    <li>Paste your SQL into the <code>sql</code> field of the request body.</li>
+    <li>Click <strong>Execute</strong> and review the response.</li>
+  </ol>
+
+  <h2>Use Case 4: Run the Test Suite</h2>
+  <p>All 12 tests use mock LLMs and do not require an API key or network access.</p>
+  <pre><code>pytest tests/ -v</code></pre>
+
+  <table>
+    <thead><tr><th>Test File</th><th>What It Tests</th></tr></thead>
+    <tbody>
+      <tr><td><code>test_linter.py</code></td><td>Linter detects anti-patterns and returns cleaned SQL</td></tr>
+      <tr><td><code>test_performance.py</code></td><td>Performance agent detects missing indexes</td></tr>
+      <tr><td><code>test_doc_genie.py</code></td><td>Doc-Genie generates documentation for new objects</td></tr>
+      <tr><td><code>test_skeptic.py</code></td><td>Skeptic approves safe changes and rejects unsafe ones</td></tr>
+      <tr><td><code>test_graph_flow.py</code></td><td>Full graph: approved path and critique-revise loop</td></tr>
+      <tr><td><code>test_api.py</code></td><td>FastAPI health, review endpoint, and input validation</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Use Case 5: Deploy to Azure</h2>
+  <pre><code># Login to Azure
+az login
+
+# Deploy all infrastructure
+bash infra/deploy.sh
+
+# Or step by step:
+az group create --name rg-sql-devops-portfolio --location eastus
+az deployment group create --resource-group rg-sql-devops-portfolio \
+  --template-file infra/main.bicep --parameters infra/parameters.json
+
+# Build and push the container
+az acr login --name acrsqldevops
+docker build -t acrsqldevops.azurecr.io/sql-review-agent:latest .
+docker push acrsqldevops.azurecr.io/sql-review-agent:latest</code></pre>
+
+  <div class="callout callout-amber">
+    <strong>Important</strong>
+    After deploying, you must set the <code>LLM_API_KEY</code> environment variable on the Container App. This can be done through the Azure Portal or via the REST API. Never commit API keys to source control.
+  </div>
+
+  <h2>API Reference</h2>
+  <table>
+    <thead><tr><th>Endpoint</th><th>Method</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>/health</code></td><td>GET</td><td>Returns <code>{"status": "healthy"}</code></td></tr>
+      <tr><td><code>/review</code></td><td>POST</td><td>Accepts SQL input, runs the full agent pipeline, returns a JSON report</td></tr>
+      <tr><td><code>/docs</code></td><td>GET</td><td>Interactive Swagger UI for testing</td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    Multi-Agent Inner Loop DevOps for SQL Server — Getting Started Guide
+  </footer>
+
+</body>
+</html>

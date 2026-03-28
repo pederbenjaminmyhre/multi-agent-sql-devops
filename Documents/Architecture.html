@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Architecture — Multi-Agent SQL DevOps</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; color: #1e293b; background: #f8fafc; line-height: 1.75; padding: 2.5rem; max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; color: #0f172a; border-bottom: 3px solid #3b82f6; padding-bottom: .4rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.25rem; color: #1e40af; margin: 1.75rem 0 .5rem; }
+    h3 { font-size: 1.05rem; color: #334155; margin: 1.2rem 0 .4rem; }
+    p { margin-bottom: .9rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: .9rem; }
+    th, td { text-align: left; padding: .6rem .8rem; border: 1px solid #e2e8f0; }
+    th { background: #1e3a5f; color: #fff; font-weight: 600; }
+    tr:nth-child(even) { background: #f1f5f9; }
+    code { font-family: "Cascadia Code", Consolas, monospace; background: #e2e8f0; padding: .1rem .35rem; border-radius: 3px; font-size: .88em; }
+    .callout { border-left: 4px solid #f59e0b; background: #fffbeb; padding: 1rem 1.25rem; border-radius: 6px; margin: 1.25rem 0; font-size: .93rem; }
+    .callout strong { display: block; margin-bottom: .25rem; }
+    .flow { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: 1rem 0; }
+    .flow-step { background: #1e3a5f; color: #fff; padding: .4rem .8rem; border-radius: 6px; font-size: .82rem; font-weight: 600; text-align: center; }
+    .flow-arrow { font-size: 1.2rem; color: #3b82f6; font-weight: 700; }
+    ul { margin: .5rem 0 1rem 1.5rem; }
+    li { margin-bottom: .3rem; }
+    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; color: #64748b; font-size: .8rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Architecture</h1>
+
+  <h2>Platform &amp; Technology Stack</h2>
+  <table>
+    <thead>
+      <tr><th>Layer</th><th>Technology</th><th>Why This Choice</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Language</td><td>Python 3.12</td><td>Dominant ecosystem for AI/ML tooling; first-class LangChain/LangGraph support</td></tr>
+      <tr><td>Orchestration</td><td>LangGraph</td><td>Explicit state-machine control with conditional edges — ideal for critique-revise loops that must be deterministic, not probabilistic</td></tr>
+      <tr><td>LLM Provider</td><td>OpenAI (gpt-4o)</td><td>Strong structured-output compliance; swappable to Anthropic via config</td></tr>
+      <tr><td>API Framework</td><td>FastAPI</td><td>Native async, automatic OpenAPI docs, Pydantic validation built in</td></tr>
+      <tr><td>Compute</td><td>Azure Container Apps</td><td>Scale-to-zero serverless containers — no cost when idle, sub-second cold start</td></tr>
+      <tr><td>State Store</td><td>Azure Cosmos DB (Serverless)</td><td>Pay-per-request; partition on <code>session_id</code> for multi-tenant readiness</td></tr>
+      <tr><td>Secrets</td><td>Azure Key Vault</td><td>Managed Identity access — no credentials in code or environment variables</td></tr>
+      <tr><td>Observability</td><td>Azure Application Insights</td><td>Distributed tracing across all agent invocations; queryable in Azure Portal</td></tr>
+      <tr><td>CI/CD</td><td>GitHub Actions</td><td>Triggers on <code>pull_request</code> with <code>.sql</code> file changes; posts review comments</td></tr>
+      <tr><td>Container Registry</td><td>Azure Container Registry (Basic)</td><td>Cheapest tier; integrated with Container Apps via admin credentials</td></tr>
+      <tr><td>IaC</td><td>Azure Bicep</td><td>First-party ARM abstraction; cleaner than raw JSON, no Terraform state to manage</td></tr>
+    </tbody>
+  </table>
+
+  <h2>System Architecture</h2>
+  <p>The system operates as a three-tier pipeline: <strong>Trigger</strong> (GitHub Actions), <strong>Orchestrator</strong> (FastAPI + LangGraph on Azure Container Apps), and <strong>Backing Services</strong> (Cosmos DB, Key Vault, Application Insights).</p>
+
+  <div class="flow">
+    <div class="flow-step">Developer PR<br/><small>.sql file changed</small></div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">GitHub Actions</div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">POST /review<br/><small>Azure Container App</small></div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">LangGraph<br/><small>Agent Pipeline</small></div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">JSON Report<br/><small>PR Comment</small></div>
+  </div>
+
+  <h2>Agent Pipeline — The Inner Loop</h2>
+  <p>The core of the system is a LangGraph <code>StateGraph</code> with five nodes connected by edges. A conditional edge after the Skeptic creates the critique-revise loop.</p>
+
+  <div class="flow">
+    <div class="flow-step">Linter<br/><small>Agent A</small></div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">Performance<br/><small>Agent B</small></div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">Doc-Genie<br/><small>Agent C</small></div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">Skeptic<br/><small>Agent D</small></div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">Report</div>
+  </div>
+
+  <div class="callout">
+    <strong>Critique-Revise Loop</strong>
+    If the Skeptic rejects the proposed changes (e.g., a fix would break a foreign key or introduce dirty reads), the pipeline routes back to the Linter for another pass. This continues until the Skeptic approves or the configurable iteration limit (default: 3) is reached.
+  </div>
+
+  <h2>Key Architectural Patterns</h2>
+
+  <h3>State-Machine Orchestration (not Chain-of-Thought)</h3>
+  <p>Each agent is a discrete node in a directed graph, not a link in a prompt chain. This means the flow is <em>deterministic</em> — the Skeptic's verdict controls routing via a conditional edge function, not an LLM's free-form reasoning. This prevents hallucinated routing and makes the system auditable.</p>
+
+  <h3>Pure-JSON Agent Contract</h3>
+  <p>Agents do not use LangChain's tool-binding mechanism. When tools are bound to an LLM, the model returns tool-call objects instead of content, which breaks structured parsing. Instead, each agent's system prompt mandates a specific JSON schema, and tools (like <code>format_sql</code> and <code>schema_checker</code>) are invoked in Python code after the LLM responds. A <code>normalize_severity()</code> function maps the unpredictable severity strings LLMs produce ("high", "moderate", "critical") to a strict <code>error</code>/<code>warning</code>/<code>info</code> enum.</p>
+
+  <h3>Schema-Aware Analysis</h3>
+  <p>The Performance Critic and Skeptic agents receive a human-readable summary of the database schema (tables, columns, indexes, foreign keys) injected directly into their prompts. This is derived from a <code>Schema.json</code> file that can be overridden per request, enabling the system to analyze SQL against any target database.</p>
+
+  <h3>Partial State Updates</h3>
+  <p>Each node function returns only the state keys it modifies, never the full <code>ReviewState</code>. This follows LangGraph's reducer pattern and prevents accidental overwrites between agents.</p>
+
+  <h2>Key Architectural Decisions</h2>
+  <table>
+    <thead><tr><th>Decision</th><th>Rationale</th></tr></thead>
+    <tbody>
+      <tr><td>LangGraph over Semantic Kernel</td><td>Python ecosystem alignment; explicit state-machine edges vs. implicit kernel planning</td></tr>
+      <tr><td>FastAPI over Flask</td><td>Native async, Pydantic validation, auto-generated Swagger docs at <code>/docs</code></td></tr>
+      <tr><td>No tool binding on LLM</td><td>Tool-bound LLMs return tool-call objects, not JSON content — breaks structured parsing</td></tr>
+      <tr><td>System prompts in <code>.md</code> files</td><td>Version-controlled, diffable, editable without touching Python code</td></tr>
+      <tr><td>Cosmos DB Serverless over Provisioned</td><td>Pay-per-request eliminates baseline cost for a portfolio project</td></tr>
+      <tr><td>Scale-to-zero Container Apps</td><td>Zero compute cost when idle; suitable for intermittent demo traffic</td></tr>
+      <tr><td>Bicep over Terraform</td><td>First-party Azure IaC; no remote state management needed</td></tr>
+      <tr><td>Max iteration cap on critique loop</td><td>Prevents infinite loops and runaway LLM costs; default 3, configurable per request</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Project Structure</h2>
+  <p>The codebase is organized by responsibility:</p>
+  <ul>
+    <li><code>src/agents/</code> — Four agent modules + markdown system prompts</li>
+    <li><code>src/graph/</code> — State definition, node functions, edge logic, graph builder</li>
+    <li><code>src/tools/</code> — Schema checker, SQL formatter, changelog writer</li>
+    <li><code>src/models/</code> — Pydantic models for API request/response and findings</li>
+    <li><code>src/services/</code> — Cosmos DB and Key Vault clients</li>
+    <li><code>src/telemetry/</code> — OpenTelemetry + Application Insights initialization</li>
+    <li><code>tests/</code> — 12 tests: unit tests per agent, graph integration, API endpoint tests</li>
+    <li><code>infra/</code> — Bicep template, parameters, deploy script</li>
+  </ul>
+
+  <footer>
+    Multi-Agent Inner Loop DevOps for SQL Server — Architecture Document
+  </footer>
+
+</body>
+</html>
