@@ -1,0 +1,81 @@
+Project 2 is about compute and coordination. You will use Azure to host the autonomous agents and GitHub to trigger them, creating a seamless "review loop" that operates every time a developer touches the code.
+
+Document 1: Technical Requirements & Architecture (For Claude Code)
+Project Title: Multi-Agent SQL DevOps Orchestrator
+Primary Objective: Deploy a fleet of specialized agents that analyze T-SQL for performance, security, and documentation standards during the CI/CD process.
+
+1. The Tech Stack
+Orchestration: LangGraph (Python) or Semantic Kernel (.NET 9).
+
+Compute: Azure Container Apps (ACA). This allows your agents to stay "warm" for fast responses or scale to zero to save costs.
+
+State Management: Azure Cosmos DB. Essential for multi-agent workflows to keep track of "who said what" during a complex review.
+
+Secret Management: Azure Key Vault to store the database connection strings and AI API keys securely.
+
+Trigger: GitHub Actions (using a custom "Service Principal" to talk to Azure).
+
+2. Deployment Workflow
+Trigger: A developer pushes a .sql file to a GitHub branch.
+
+GitHub Action: The action sends the SQL content and the schema context to your Orchestrator API hosted in Azure Container Apps.
+
+Agent Loop:
+
+Agent A (Linter) flags syntax.
+
+Agent B (Performance) checks indexes.
+
+Agent C (Skeptic) validates all suggestions.
+
+Handoff: The Orchestrator returns a JSON report back to GitHub.
+
+Output: GitHub Actions uses the report to add automated comments directly onto the Pull Request or block the merge if critical issues are found.
+
+3. Implementation Instructions for Claude Code
+"Claude, help me build a deployment-ready Multi-Agent API.
+
+Specific Tasks:
+
+Write a Python FastAPI wrapper that takes a SQL string as input and kicks off a LangGraph workflow.
+
+Create a Dockerfile optimized for Azure Container Apps.
+
+Write a GitHub Actions YAML file that triggers on pull_request and calls this API.
+
+Implement Azure Application Insights logging so I can trace agent reasoning in the Azure Portal."
+
+Document 2: Strategic Market Positioning & Campaign
+Role Identity: AI DevOps Architect / Database Reliability Engineer (DBRE)
+Core Value Proposition: "I don't just manage databases; I build the autonomous systems that ensure database code is high-performance and secure by design."
+
+1. Skills & Concepts to Highlight
+Shift-Left Database Governance: This is a major industry buzzword. It means catching database errors in development rather than in production.
+
+Agentic State Machines: Show you understand LangGraph or Durable Functions. This proves you can handle long-running, complex logic that "standard" AI apps can't.
+
+Observability (Tracing): Highlight your use of Azure Monitor. Enterprises are terrified of "black box" AI; showing you can trace every agent decision is a high-value skill.
+
+2. The Marketing Campaign
+The "Before & After" Case Study:
+
+Post: "Manual SQL reviews are a bottleneck. I built an AI-agent loop that does the first 80% of the work in 30 seconds."
+
+Visual: A screenshot of a GitHub Pull Request where an AI Agent has automatically pointed out a missing index and suggested the exact T-SQL to fix it.
+
+Targeting "Scale-Up" Companies:
+
+Look for companies that have a growing number of developers but a small DBA team.
+
+"I noticed your team is expanding. I specialize in building Agentic DevOps pipelines that act as a 'force multiplier' for DBAs, automatically enforcing performance standards at the code level."
+
+3. Key Portfolio Keywords
+Agentic CI/CD
+
+SQL Performance Guardrails
+
+Automated Schema Governance
+
+LangGraph / Semantic Kernel Orchestration
+
+Observability for AI Agents

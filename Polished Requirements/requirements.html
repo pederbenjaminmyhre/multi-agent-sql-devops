@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-Agent Inner Loop DevOps for SQL Server &mdash; Project Requirements</title>
+  <style>
+    /* ── Reset & Base ────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    body {
+      font-family: "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+      color: #1e293b;
+      background: #f8fafc;
+      line-height: 1.7;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    /* ── Sidebar / TOC ───────────────────────────────────────── */
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      width: 280px;
+      height: 100vh;
+      overflow-y: auto;
+      background: #0f172a;
+      color: #cbd5e1;
+      padding: 2rem 1.25rem;
+      z-index: 100;
+    }
+    .sidebar h2 {
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: #60a5fa;
+      margin-bottom: 1.25rem;
+    }
+    .sidebar ol {
+      list-style: none;
+      counter-reset: toc-section;
+    }
+    .sidebar > ol > li { margin-bottom: .35rem; }
+    .sidebar > ol > li > a {
+      counter-increment: toc-section;
+      font-weight: 600;
+      font-size: .9rem;
+    }
+    .sidebar > ol > li > a::before {
+      content: counter(toc-section) ". ";
+      color: #60a5fa;
+    }
+    .sidebar ol ol {
+      margin-left: 1rem;
+      margin-top: .2rem;
+    }
+    .sidebar ol ol li { margin-bottom: .15rem; }
+    .sidebar ol ol a { font-size: .82rem; font-weight: 400; }
+    .sidebar a {
+      color: #cbd5e1;
+      text-decoration: none;
+      display: block;
+      padding: .25rem .4rem;
+      border-radius: 4px;
+      transition: background .15s, color .15s;
+    }
+    .sidebar a:hover, .sidebar a:focus { background: #1e3a5f; color: #fff; }
+
+    /* ── Main Content ────────────────────────────────────────── */
+    .content {
+      margin-left: 280px;
+      max-width: 860px;
+      padding: 3rem 3rem 6rem;
+    }
+
+    /* ── Header / Hero ───────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+      color: #fff;
+      padding: 3rem 2.5rem;
+      border-radius: 12px;
+      margin-bottom: 3rem;
+    }
+    .hero h1 { font-size: 2rem; line-height: 1.25; margin-bottom: .75rem; }
+    .hero .subtitle { font-size: 1.05rem; color: #93c5fd; margin-bottom: 1.5rem; }
+    .hero .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: .75rem;
+    }
+    .hero .meta-item { font-size: .85rem; color: #cbd5e1; }
+    .hero .meta-item strong { color: #fff; }
+
+    /* ── Sections ─────────────────────────────────────────────── */
+    section { margin-bottom: 3rem; }
+    h2 {
+      font-size: 1.55rem;
+      color: #0f172a;
+      border-bottom: 3px solid #3b82f6;
+      padding-bottom: .4rem;
+      margin-bottom: 1.25rem;
+    }
+    h3 {
+      font-size: 1.15rem;
+      color: #1e40af;
+      margin: 1.5rem 0 .6rem;
+    }
+    h4 {
+      font-size: 1rem;
+      color: #334155;
+      margin: 1.2rem 0 .4rem;
+    }
+    p { margin-bottom: .9rem; }
+
+    /* ── Tables ───────────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: .9rem;
+    }
+    th, td {
+      text-align: left;
+      padding: .65rem .85rem;
+      border: 1px solid #e2e8f0;
+    }
+    th { background: #1e3a5f; color: #fff; font-weight: 600; }
+    tr:nth-child(even) { background: #f1f5f9; }
+
+    /* ── Lists ────────────────────────────────────────────────── */
+    ul, ol { margin: .5rem 0 1rem 1.5rem; }
+    li { margin-bottom: .35rem; }
+
+    /* ── Callout Boxes ───────────────────────────────────────── */
+    .callout {
+      border-left: 4px solid;
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0;
+      font-size: .92rem;
+    }
+    .callout-blue  { border-color: #3b82f6; background: #eff6ff; }
+    .callout-green { border-color: #22c55e; background: #f0fdf4; }
+    .callout-amber { border-color: #f59e0b; background: #fffbeb; }
+    .callout strong { display: block; margin-bottom: .25rem; }
+
+    /* ── Diagram / Flow ──────────────────────────────────────── */
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: .5rem;
+      margin: 1.25rem 0;
+    }
+    .flow-step {
+      background: #1e3a5f;
+      color: #fff;
+      padding: .5rem 1rem;
+      border-radius: 8px;
+      font-size: .85rem;
+      font-weight: 600;
+      text-align: center;
+      min-width: 120px;
+    }
+    .flow-arrow { font-size: 1.3rem; color: #3b82f6; font-weight: 700; }
+
+    /* ── Keyword Tags ────────────────────────────────────────── */
+    .tags { display: flex; flex-wrap: wrap; gap: .45rem; margin: .75rem 0; }
+    .tag {
+      background: #dbeafe;
+      color: #1e40af;
+      font-size: .78rem;
+      font-weight: 600;
+      padding: .25rem .7rem;
+      border-radius: 999px;
+    }
+
+    /* ── Code / Mono ─────────────────────────────────────────── */
+    code {
+      font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+      background: #e2e8f0;
+      padding: .15rem .4rem;
+      border-radius: 4px;
+      font-size: .88em;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .content { margin-left: 0; padding: 2rem 1.25rem 4rem; }
+    }
+    @media print {
+      .sidebar { display: none; }
+      .content { margin-left: 0; }
+      .hero { background: #0f172a !important; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- ════════════════════════════════════════════════════════
+       SIDEBAR / TABLE OF CONTENTS
+       ════════════════════════════════════════════════════════ -->
+  <nav class="sidebar" aria-label="Table of Contents">
+    <h2>Table of Contents</h2>
+    <ol>
+      <li>
+        <a href="#executive-summary">Executive Summary</a>
+      </li>
+      <li>
+        <a href="#architecture">Architecture &amp; Technical Requirements</a>
+        <ol>
+          <li><a href="#tech-stack">Technology Stack</a></li>
+          <li><a href="#agent-roster">Multi-Agent Roster</a></li>
+          <li><a href="#core-workflow">Core Workflow &mdash; The Inner Loop</a></li>
+          <li><a href="#api-surface">API Surface &amp; Integration</a></li>
+        </ol>
+      </li>
+      <li>
+        <a href="#deployment">Deployment &amp; Hosting Strategy</a>
+        <ol>
+          <li><a href="#azure-topology">Azure Resource Topology</a></li>
+          <li><a href="#cicd-pipeline">CI/CD Pipeline</a></li>
+          <li><a href="#cost-management">Cost Management</a></li>
+          <li><a href="#security">Security &amp; Secrets</a></li>
+          <li><a href="#observability">Observability &amp; Tracing</a></li>
+        </ol>
+      </li>
+      <li>
+        <a href="#outreach">Career Outreach &amp; Engagement Strategy</a>
+        <ol>
+          <li><a href="#role-identity">Role Identity &amp; Value Proposition</a></li>
+          <li><a href="#skills-highlight">Skills to Highlight</a></li>
+          <li><a href="#campaign">Marketing Campaign Playbook</a></li>
+          <li><a href="#targeting">Target Audience &amp; Messaging</a></li>
+          <li><a href="#portfolio-keywords">Portfolio Keywords for 2026</a></li>
+        </ol>
+      </li>
+      <li>
+        <a href="#implementation">Implementation Roadmap</a>
+      </li>
+      <li>
+        <a href="#success-criteria">Success Criteria</a>
+      </li>
+    </ol>
+  </nav>
+
+  <!-- ════════════════════════════════════════════════════════
+       MAIN CONTENT
+       ════════════════════════════════════════════════════════ -->
+  <main class="content">
+
+    <!-- Hero ──────────────────────────────────────────────── -->
+    <header class="hero">
+      <h1>Multi-Agent "Inner Loop" DevOps for SQL Server</h1>
+      <p class="subtitle">Autonomous Review-and-Fix Pipeline &mdash; Project Requirements Document</p>
+      <div class="meta-grid">
+        <div class="meta-item"><strong>Project&nbsp;ID:</strong> Portfolio &ndash; Project 2</div>
+        <div class="meta-item"><strong>Platform:</strong> Microsoft Azure</div>
+        <div class="meta-item"><strong>Orchestration:</strong> LangGraph (Python) / Semantic Kernel (.NET&nbsp;9)</div>
+        <div class="meta-item"><strong>Trigger:</strong> GitHub Actions / Azure DevOps</div>
+      </div>
+    </header>
+
+    <!-- 1. Executive Summary ─────────────────────────────── -->
+    <section id="executive-summary">
+      <h2>1. Executive Summary</h2>
+      <p>
+        This project delivers an <strong>autonomous, multi-agent code-review pipeline</strong> that
+        prevents poor-performing or insecure T-SQL from ever reaching a production-ready branch. By
+        embedding specialized AI agents directly inside the CI/CD inner loop, every SQL change is
+        linted, performance-analyzed, documented, and validated before a human reviewer ever sees it.
+      </p>
+      <div class="callout callout-blue">
+        <strong>Primary Objective</strong>
+        Create a fully autonomous "Review-and-Fix" loop that enforces T-SQL quality, performance,
+        and documentation standards at the pull-request level&mdash;deployed to Azure as a live,
+        portfolio-grade demonstration.
+      </div>
+      <p>
+        The system is designed not only as a functional DevOps tool but as a <strong>professional
+        portfolio centerpiece</strong> demonstrating mastery of agentic AI orchestration, cloud-native
+        deployment, and database reliability engineering.
+      </p>
+    </section>
+
+    <!-- 2. Architecture & Technical Requirements ─────────── -->
+    <section id="architecture">
+      <h2>2. Architecture &amp; Technical Requirements</h2>
+
+      <h3 id="tech-stack">2.1 Technology Stack</h3>
+      <table>
+        <thead>
+          <tr><th>Layer</th><th>Technology</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Orchestration</td>
+            <td>LangGraph (Python) <em>preferred</em><br/>Semantic Kernel (.NET&nbsp;9) <em>alternate</em></td>
+            <td>State-machine control for multi-agent routing and critique-revise loops</td>
+          </tr>
+          <tr>
+            <td>API&nbsp;Layer</td>
+            <td>Python FastAPI</td>
+            <td>HTTP wrapper that accepts SQL input and initiates the LangGraph workflow</td>
+          </tr>
+          <tr>
+            <td>Compute</td>
+            <td>Azure Container Apps (ACA)</td>
+            <td>Serverless containers&mdash;stay warm for fast response, scale to zero to minimize cost</td>
+          </tr>
+          <tr>
+            <td>State Management</td>
+            <td>Azure Cosmos DB</td>
+            <td>Persistent state tracking for multi-agent conversations ("who said what")</td>
+          </tr>
+          <tr>
+            <td>Secret Management</td>
+            <td>Azure Key Vault</td>
+            <td>Secure storage for connection strings, AI API keys, and service credentials</td>
+          </tr>
+          <tr>
+            <td>CI/CD Trigger</td>
+            <td>GitHub Actions</td>
+            <td>Custom workflow using a Service Principal to authenticate with Azure</td>
+          </tr>
+          <tr>
+            <td>Observability</td>
+            <td>Azure Application Insights / Azure Monitor</td>
+            <td>End-to-end tracing of agent reasoning and decision chains</td>
+          </tr>
+          <tr>
+            <td>Containerization</td>
+            <td>Docker</td>
+            <td>Optimized image targeting Azure Container Apps</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 id="agent-roster">2.2 Multi-Agent Roster</h3>
+      <table>
+        <thead>
+          <tr><th>Agent</th><th>Role</th><th>Responsibilities</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Orchestrator (Supervisor)</strong></td>
+            <td>Router &amp; Coordinator</td>
+            <td>Routes SQL scripts through the specialist pipeline; manages state transitions and the critique-revise loop</td>
+          </tr>
+          <tr>
+            <td><strong>Agent&nbsp;A &mdash; The Linter</strong></td>
+            <td>Static Analysis</td>
+            <td>Scans T-SQL for anti-patterns: <code>SELECT *</code>, missing <code>NOLOCK</code> hints, implicit conversions, deprecated syntax</td>
+          </tr>
+          <tr>
+            <td><strong>Agent&nbsp;B &mdash; The Performance Critic</strong></td>
+            <td>Performance Analysis</td>
+            <td>Evaluates code against a schema dictionary (<code>Schema.json</code>); identifies missing indexes, parameter-sniffing risks, and inefficient JOINs</td>
+          </tr>
+          <tr>
+            <td><strong>Agent&nbsp;C &mdash; The Doc-Genie</strong></td>
+            <td>Documentation</td>
+            <td>Auto-generates Markdown documentation and SQL Extended Properties for every new table or stored procedure</td>
+          </tr>
+          <tr>
+            <td><strong>Agent&nbsp;D &mdash; The Skeptic / Validator</strong></td>
+            <td>Safety Validation</td>
+            <td>Reviews suggestions from Agents A and B to ensure they do not introduce breaking changes; triggers re-linting when issues are found</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 id="core-workflow">2.3 Core Workflow &mdash; The Inner Loop</h3>
+      <p>
+        The following state machine defines the end-to-end review cycle. If the Skeptic finds an issue,
+        the script is routed back to the Linter, forming a closed critique-and-revise loop.
+      </p>
+      <div class="flow">
+        <div class="flow-step">Developer Push<br/><small>.sql &rarr; Review branch</small></div>
+        <span class="flow-arrow">&rarr;</span>
+        <div class="flow-step">State 1<br/><small>Linter (Agent A)</small></div>
+        <span class="flow-arrow">&rarr;</span>
+        <div class="flow-step">State 2<br/><small>Performance (Agent B)</small></div>
+        <span class="flow-arrow">&rarr;</span>
+        <div class="flow-step">State 3<br/><small>Documentation (Agent C)</small></div>
+        <span class="flow-arrow">&rarr;</span>
+        <div class="flow-step">State 4<br/><small>Skeptic (Agent D)</small></div>
+        <span class="flow-arrow">&rarr;</span>
+        <div class="flow-step">Human-in-the-Loop<br/><small>Proposed Changes Report</small></div>
+        <span class="flow-arrow">&rarr;</span>
+        <div class="flow-step">Commit<br/><small>Apply &amp; merge to Main</small></div>
+      </div>
+      <div class="callout callout-amber">
+        <strong>Critique-Revise Loop</strong>
+        If Agent D (the Skeptic) detects that a proposed fix introduces a breaking change or logical
+        error, the script is automatically routed back to Agent A for re-analysis. This loop continues
+        until the Skeptic approves or a configurable iteration limit is reached.
+      </div>
+
+      <h4>Agent Tooling</h4>
+      <ul>
+        <li><strong>Schema Checker Tool:</strong> Validates SQL against a <code>Schema.json</code> file containing table definitions, column types, and existing indexes.</li>
+        <li><strong>SQL Formatter Tool:</strong> Applies consistent formatting and syntax standardization to all output scripts.</li>
+      </ul>
+
+      <h4>Outputs</h4>
+      <ul>
+        <li>Cleaned, validated SQL script ready for merge</li>
+        <li>Auto-generated <code>ChangeLog.md</code> documenting every modification</li>
+        <li>Markdown documentation and Extended Properties for new database objects</li>
+        <li>JSON report posted as PR comments or used to block merges on critical findings</li>
+      </ul>
+
+      <h3 id="api-surface">2.4 API Surface &amp; Integration</h3>
+      <p>
+        The orchestrator is exposed as a RESTful API via <strong>FastAPI</strong>, enabling both
+        GitHub Actions and manual invocations.
+      </p>
+      <table>
+        <thead>
+          <tr><th>Endpoint</th><th>Method</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>/review</code></td><td>POST</td><td>Accepts a SQL string and schema context; initiates the full agent loop; returns a JSON report</td></tr>
+          <tr><td><code>/health</code></td><td>GET</td><td>Liveness check for Azure Container Apps probes</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 3. Deployment & Hosting Strategy ─────────────────── -->
+    <section id="deployment">
+      <h2>3. Deployment &amp; Hosting Strategy</h2>
+      <p>
+        This section defines how the system is built, shipped, and operated on Microsoft Azure.
+        The architecture prioritizes <strong>cost efficiency</strong> (scale-to-zero), <strong>security</strong>
+        (Key Vault, Service Principals), and <strong>observability</strong> (Application Insights tracing).
+      </p>
+
+      <h3 id="azure-topology">3.1 Azure Resource Topology</h3>
+      <table>
+        <thead>
+          <tr><th>Resource</th><th>SKU / Tier</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Resource Group</td><td>&mdash;</td><td>Logical container for all project resources</td></tr>
+          <tr><td>Azure Container Apps Environment</td><td>Consumption</td><td>Hosts the FastAPI orchestrator container</td></tr>
+          <tr><td>Azure Cosmos DB</td><td>Serverless</td><td>Persists agent state and conversation history</td></tr>
+          <tr><td>Azure Key Vault</td><td>Standard</td><td>Stores API keys, connection strings, and service credentials</td></tr>
+          <tr><td>Azure Application Insights</td><td>&mdash;</td><td>Telemetry, distributed tracing, and log analytics</td></tr>
+          <tr><td>Azure Container Registry</td><td>Basic</td><td>Hosts the Docker image for the orchestrator</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="cicd-pipeline">3.2 CI/CD Pipeline</h3>
+      <p>The end-to-end deployment and review pipeline operates as follows:</p>
+      <ol>
+        <li><strong>Trigger:</strong> A developer pushes a <code>.sql</code> file to a feature branch on GitHub.</li>
+        <li><strong>GitHub Action fires:</strong> The workflow authenticates with Azure using a Service Principal, extracts the SQL content, and sends it along with schema context to the Orchestrator API.</li>
+        <li><strong>Agent loop executes</strong> inside Azure Container Apps (Linter &rarr; Performance &rarr; Documentation &rarr; Skeptic, with critique-revise looping as needed).</li>
+        <li><strong>JSON report returned:</strong> The orchestrator sends a structured report back to the GitHub Action.</li>
+        <li><strong>PR integration:</strong> The Action posts automated review comments on the pull request and optionally blocks the merge if critical issues are found.</li>
+      </ol>
+
+      <h4>GitHub Actions Workflow Artifacts</h4>
+      <ul>
+        <li>Custom YAML workflow triggered on <code>pull_request</code> events</li>
+        <li>Service Principal credentials stored as GitHub Secrets</li>
+        <li>Authenticated calls to the Azure-hosted API endpoint</li>
+      </ul>
+
+      <h3 id="cost-management">3.3 Cost Management</h3>
+      <div class="callout callout-green">
+        <strong>Scale-to-Zero Architecture</strong>
+        Azure Container Apps on the Consumption tier and Cosmos DB in Serverless mode ensure that the
+        system incurs minimal cost when idle. The agents only consume compute during active reviews,
+        making this suitable for a portfolio project with intermittent traffic.
+      </div>
+
+      <h3 id="security">3.4 Security &amp; Secrets Management</h3>
+      <ul>
+        <li><strong>Azure Key Vault</strong> stores all sensitive values: database connection strings, LLM API keys, and service credentials.</li>
+        <li><strong>Service Principal</strong> with least-privilege RBAC grants GitHub Actions scoped access to Azure resources.</li>
+        <li><strong>Managed Identity</strong> on Container Apps eliminates the need for credentials in application code.</li>
+        <li>No secrets are stored in source control, environment variables, or Docker images.</li>
+      </ul>
+
+      <h3 id="observability">3.5 Observability &amp; Tracing</h3>
+      <p>
+        Enterprise stakeholders are wary of "black box" AI. This system provides full transparency
+        into agent decision-making:
+      </p>
+      <ul>
+        <li><strong>Azure Application Insights</strong> captures distributed traces across all agent invocations.</li>
+        <li>Each agent's reasoning chain, input, and output are logged as custom telemetry events.</li>
+        <li><strong>Azure Monitor</strong> dashboards surface key metrics: review latency, loop iterations, and issue severity distribution.</li>
+        <li>All traces are queryable in the Azure Portal, enabling post-hoc analysis of any review decision.</li>
+      </ul>
+    </section>
+
+    <!-- 4. Career Outreach & Engagement Strategy ─────────── -->
+    <section id="outreach">
+      <h2>4. Career Outreach &amp; Engagement Strategy</h2>
+      <p>
+        This project serves dual purposes: a functional DevOps tool and a <strong>professional portfolio
+        asset</strong>. The following strategy defines how to position this work to engage potential
+        customers, recruiters, and employers.
+      </p>
+
+      <h3 id="role-identity">4.1 Role Identity &amp; Value Proposition</h3>
+      <table>
+        <thead>
+          <tr><th>Dimension</th><th>Positioning</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Title</strong></td>
+            <td>Database DevOps Engineer / AI Operations Architect / Database Reliability Engineer (DBRE)</td>
+          </tr>
+          <tr>
+            <td><strong>Value Proposition</strong></td>
+            <td>"I eliminate technical debt before it happens by building AI-driven guardrails for the database development lifecycle."</td>
+          </tr>
+          <tr>
+            <td><strong>Alternate Framing</strong></td>
+            <td>"I don't just manage databases; I build the autonomous systems that ensure database code is high-performance and secure by design."</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 id="skills-highlight">4.2 Skills &amp; Concepts to Highlight</h3>
+      <table>
+        <thead>
+          <tr><th>Skill / Concept</th><th>Why It Matters</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Autonomous Code Review</strong></td>
+            <td>Demonstrates you did not just review code&mdash;you built the system that <em>is</em> the reviewer.</td>
+          </tr>
+          <tr>
+            <td><strong>State-Machine Orchestration</strong></td>
+            <td>LangGraph and Directed Acyclic Graphs (DAGs) prove you can control AI to prevent hallucinated or unsafe changes.</td>
+          </tr>
+          <tr>
+            <td><strong>Inner Loop Optimization</strong></td>
+            <td>Signals fluency in developer experience (DX) and reducing time-to-market.</td>
+          </tr>
+          <tr>
+            <td><strong>Scalable Governance</strong></td>
+            <td>This system reviews 1,000 scripts as easily as 1, ensuring consistent quality across a 50-person team.</td>
+          </tr>
+          <tr>
+            <td><strong>Shift-Left Database Governance</strong></td>
+            <td>A major industry priority&mdash;catching database errors in development rather than production.</td>
+          </tr>
+          <tr>
+            <td><strong>Agentic State Machines</strong></td>
+            <td>Proves you can handle long-running, complex logic that standard AI applications cannot.</td>
+          </tr>
+          <tr>
+            <td><strong>Observability &amp; Tracing</strong></td>
+            <td>Enterprises demand transparency; showing you can trace every agent decision is a high-value differentiator.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 id="campaign">4.3 Marketing Campaign Playbook</h3>
+
+      <h4>Campaign 1 &mdash; The "Problem / Solution" Post (LinkedIn)</h4>
+      <ul>
+        <li><strong>Hook:</strong> "Senior DBAs spend 40% of their time fixing junior dev queries. I decided to automate myself out of that job."</li>
+        <li><strong>Visual:</strong> A screen recording of dragging a "bad" SQL script into a folder and the multi-agent system returning a perfected version in 30 seconds.</li>
+        <li><strong>Tagline:</strong> "Consistency is the enemy of scale. AI-driven DevOps makes consistency automatic."</li>
+      </ul>
+
+      <h4>Campaign 2 &mdash; The "Before &amp; After" Case Study</h4>
+      <ul>
+        <li><strong>Post:</strong> "Manual SQL reviews are a bottleneck. I built an AI-agent loop that does the first 80% of the work in 30 seconds."</li>
+        <li><strong>Visual:</strong> A screenshot of a GitHub Pull Request where an AI agent has automatically identified a missing index and suggested the exact T-SQL to fix it.</li>
+      </ul>
+
+      <h4>Campaign 3 &mdash; The Live Demo Video</h4>
+      <ul>
+        <li>Record a full walkthrough: push a flawed SQL script, show the agents analyzing it in real time, and demonstrate the PR comments and final output.</li>
+        <li>Embed the video on your portfolio site and LinkedIn profile.</li>
+      </ul>
+
+      <h3 id="targeting">4.4 Target Audience &amp; Messaging</h3>
+      <table>
+        <thead>
+          <tr><th>Audience</th><th>Outreach Message</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Technical Leads / Managers</strong></td>
+            <td>"I see your team is scaling its data operations. I've developed an Agentic DevOps loop that automatically enforces SQL best practices and performance standards at the PR level. I'd love to show you how this can reduce your code-review bottleneck."</td>
+          </tr>
+          <tr>
+            <td><strong>Scale-Up Companies</strong><br/><small>(growing dev team, small DBA staff)</small></td>
+            <td>"I noticed your team is expanding. I specialize in building Agentic DevOps pipelines that act as a 'force multiplier' for DBAs, automatically enforcing performance standards at the code level."</td>
+          </tr>
+          <tr>
+            <td><strong>Recruiters</strong></td>
+            <td>Portfolio site and LinkedIn profile featuring live demo links, architecture diagrams, and keyword-rich descriptions that match modern job postings.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 id="portfolio-keywords">4.5 Portfolio Keywords for 2026</h3>
+      <p>Ensure these terms appear in your LinkedIn profile, portfolio site, and resume:</p>
+      <div class="tags">
+        <span class="tag">Agentic Workflows</span>
+        <span class="tag">Multi-Agent Orchestration</span>
+        <span class="tag">Agentic CI/CD</span>
+        <span class="tag">CI/CD for Databases</span>
+        <span class="tag">Self-Healing Pipelines</span>
+        <span class="tag">T-SQL Static Analysis</span>
+        <span class="tag">SQL Performance Guardrails</span>
+        <span class="tag">Automated Schema Governance</span>
+        <span class="tag">LangGraph / Semantic Kernel Orchestration</span>
+        <span class="tag">Observability for AI Agents</span>
+        <span class="tag">Shift-Left Database Governance</span>
+        <span class="tag">Inner Loop Optimization</span>
+      </div>
+    </section>
+
+    <!-- 5. Implementation Roadmap ────────────────────────── -->
+    <section id="implementation">
+      <h2>5. Implementation Roadmap</h2>
+      <table>
+        <thead>
+          <tr><th>Phase</th><th>Milestone</th><th>Deliverables</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Phase 1</strong><br/>Foundation</td>
+            <td>Local agent pipeline running end-to-end</td>
+            <td>
+              <ul>
+                <li>Python LangGraph state graph passing SQL between agents</li>
+                <li>Schema Checker and SQL Formatter tools defined</li>
+                <li>Critique-and-revise loop functional</li>
+                <li>Clean SQL and <code>ChangeLog.md</code> exported</li>
+              </ul>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Phase 2</strong><br/>API &amp; Container</td>
+            <td>Deployable containerized API</td>
+            <td>
+              <ul>
+                <li>FastAPI wrapper for the LangGraph workflow</li>
+                <li>Dockerfile optimized for Azure Container Apps</li>
+                <li>Health-check endpoint</li>
+              </ul>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Phase 3</strong><br/>Azure Deployment</td>
+            <td>Live system on Azure</td>
+            <td>
+              <ul>
+                <li>Azure Container Apps environment provisioned</li>
+                <li>Cosmos DB, Key Vault, and Application Insights configured</li>
+                <li>Service Principal and Managed Identity set up</li>
+              </ul>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Phase 4</strong><br/>CI/CD Integration</td>
+            <td>Automated PR reviews</td>
+            <td>
+              <ul>
+                <li>GitHub Actions YAML triggered on <code>pull_request</code></li>
+                <li>Automated PR comments and merge-blocking logic</li>
+              </ul>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Phase 5</strong><br/>Portfolio &amp; Outreach</td>
+            <td>Public portfolio asset</td>
+            <td>
+              <ul>
+                <li>Demo video recorded and published</li>
+                <li>LinkedIn campaign posts drafted and scheduled</li>
+                <li>Portfolio site updated with project showcase</li>
+              </ul>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 6. Success Criteria ──────────────────────────────── -->
+    <section id="success-criteria">
+      <h2>6. Success Criteria</h2>
+      <table>
+        <thead>
+          <tr><th>Criterion</th><th>Measurement</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Agent pipeline completes a full review cycle without manual intervention</td><td>End-to-end test with sample SQL scripts</td></tr>
+          <tr><td>Critique-revise loop correctly identifies and rejects breaking changes</td><td>Deliberate injection of flawed suggestions</td></tr>
+          <tr><td>System scales to zero when idle (no cost when not in use)</td><td>Azure billing confirms zero compute charges during idle periods</td></tr>
+          <tr><td>Full agent reasoning is traceable in Application Insights</td><td>Distributed trace visible in Azure Portal for every review</td></tr>
+          <tr><td>GitHub Actions posts accurate, actionable PR comments</td><td>Review of automated comments on test pull requests</td></tr>
+          <tr><td>Portfolio demo conveys the project's value in under 60 seconds</td><td>Peer review of demo video</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Footer ───────────────────────────────────────────── -->
+    <footer style="margin-top:3rem; padding-top:1.5rem; border-top:1px solid #e2e8f0; color:#64748b; font-size:.82rem;">
+      <p>Multi-Agent Inner Loop DevOps for SQL Server &mdash; Project Requirements v1.0</p>
+    </footer>
+
+  </main>
+</div>
+</body>
+</html>

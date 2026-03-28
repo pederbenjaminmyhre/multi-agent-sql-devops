@@ -1,0 +1,38 @@
+Project Title: Multi-Agent "Inner Loop" DevOps for SQL Server
+Target Environment: GitHub Actions / Azure DevOps, Python (LangGraph) or C# (Semantic Kernel)
+Primary Objective: Create an autonomous "Review-and-Fix" loop that prevents poor-performing or insecure T-SQL from ever reaching a Production-ready branch.
+
+1. The Multi-Agent Stack
+Orchestrator: LangGraph (preferred for its state-machine control) or C# Semantic Kernel.
+
+Agent A (The Linter): Scans T-SQL for "Anti-patterns" (e.g., SELECT *, missing NOLOCK where appropriate, or implicit conversions).
+
+Agent B (The Performance Critic): Analyzes the code against a schema dictionary. It identifies missing indexes or potential "Parameter Sniffing" risks.
+
+Agent C (The Doc-Genie): Automatically generates Markdown documentation and Extended Properties for every new table or procedure.
+
+Agent D (The Skeptic/Validator): Reviews the suggestions of Agents A and B to ensure they don't introduce breaking changes.
+
+2. Core Workflow (The "Loop")
+Input: A developer pushes a .sql script to a "Review" folder.
+
+State 1 (Linter): Agent A flags syntax issues.
+
+State 2 (Architect): Agent B reviews the logic and suggests an INDEX if a JOIN is on an unindexed column.
+
+State 3 (Human-in-the-Loop): The system pauses and presents a "Proposed Changes" report to you.
+
+State 4 (Commit): Once approved, the agents apply the fixes and move the file to the "Main" branch.
+
+3. Implementation Instructions for Claude Code
+"Claude, help me build a Multi-Agent system using LangGraph. We need a 'Supervisor' agent that routes a SQL script through three specialists.
+
+Specific Tasks:
+
+Create a Python script that uses a State Graph to pass a SQL string between agents.
+
+Define 'Tools' for the agents: one to check against a 'Schema.json' file and another to run a 'SQL Formatter'.
+
+Build a 'Critique-and-Revise' loop where if the 'Skeptic' agent finds a mistake, the script is sent back to the 'Linter'.
+
+Export the final 'Clean' SQL and a 'ChangeLog.md' automatically."

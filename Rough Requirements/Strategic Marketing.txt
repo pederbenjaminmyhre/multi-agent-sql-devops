@@ -1,0 +1,36 @@
+Strategic Market Positioning & Campaign
+Role Identity: Database DevOps Engineer / AI Operations Architect
+Core Value Proposition: "I eliminate technical debt before it happens by building AI-driven guardrails for the database development lifecycle."
+
+1. Skills & Concepts to Highlight
+Autonomous Code Review: You aren't just a reviewer; you built the system that is the reviewer.
+
+State-Machine Orchestration: Mention LangGraph or Directed Acyclic Graphs (DAGs). This shows you understand how to control AI so it doesn't "hallucinate" wild changes.
+
+Inner Loop Optimization: Use this specific term. It tells employers you understand the developer experience (DX) and how to speed up the time-to-market.
+
+Scalable Governance: Highlight that this system can review 1,000 scripts as easily as 1, ensuring standard quality across a 50-person dev team.
+
+2. The Marketing Campaign
+The "Problem/Solution" Post (LinkedIn):
+
+Hook: "Senior DBAs spend 40% of their time fixing junior dev queries. I decided to automate myself out of that job."
+
+The Video: A screen recording of you dragging a "bad" SQL script into a folder and the Multi-Agent system returning a "Perfected" version 30 seconds later.
+
+The Tagline: "Consistency is the enemy of scale. AI-driven DevOps makes consistency automatic."
+
+Targeting Technical Leads/Managers:
+
+"I see your team is scaling its data operations. I've developed an Agentic DevOps loop that automatically enforces SQL best practices and performance standards at the PR level. I’d love to show you how this can reduce your code-review bottleneck."
+
+3. Key Portfolio Keywords for 2026
+Agentic Workflows
+
+Multi-Agent Orchestration
+
+CI/CD for Databases
+
+Self-Healing Pipelines
+
+T-SQL Static Analysis

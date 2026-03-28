@@ -1,0 +1,63 @@
+{
+  "tables": {
+    "Customers": {
+      "columns": {
+        "CustomerID": { "type": "INT", "nullable": false, "is_pk": true },
+        "FirstName": { "type": "NVARCHAR(100)", "nullable": false },
+        "LastName": { "type": "NVARCHAR(100)", "nullable": false },
+        "Email": { "type": "NVARCHAR(255)", "nullable": false },
+        "CreatedDate": { "type": "DATETIME2", "nullable": false }
+      },
+      "indexes": [
+        { "name": "PK_Customers", "columns": ["CustomerID"], "is_unique": true },
+        { "name": "UQ_Customers_Email", "columns": ["Email"], "is_unique": true }
+      ],
+      "foreign_keys": []
+    },
+    "Orders": {
+      "columns": {
+        "OrderID": { "type": "INT", "nullable": false, "is_pk": true },
+        "CustomerID": { "type": "INT", "nullable": false },
+        "OrderDate": { "type": "DATETIME2", "nullable": false },
+        "TotalAmount": { "type": "DECIMAL(18,2)", "nullable": false },
+        "Status": { "type": "NVARCHAR(50)", "nullable": false }
+      },
+      "indexes": [
+        { "name": "PK_Orders", "columns": ["OrderID"], "is_unique": true },
+        { "name": "IX_Orders_CustomerID", "columns": ["CustomerID"], "is_unique": false }
+      ],
+      "foreign_keys": [
+        { "column": "CustomerID", "references": { "table": "Customers", "column": "CustomerID" } }
+      ]
+    },
+    "OrderItems": {
+      "columns": {
+        "OrderItemID": { "type": "INT", "nullable": false, "is_pk": true },
+        "OrderID": { "type": "INT", "nullable": false },
+        "ProductID": { "type": "INT", "nullable": false },
+        "Quantity": { "type": "INT", "nullable": false },
+        "UnitPrice": { "type": "DECIMAL(18,2)", "nullable": false }
+      },
+      "indexes": [
+        { "name": "PK_OrderItems", "columns": ["OrderItemID"], "is_unique": true }
+      ],
+      "foreign_keys": [
+        { "column": "OrderID", "references": { "table": "Orders", "column": "OrderID" } },
+        { "column": "ProductID", "references": { "table": "Products", "column": "ProductID" } }
+      ]
+    },
+    "Products": {
+      "columns": {
+        "ProductID": { "type": "INT", "nullable": false, "is_pk": true },
+        "ProductName": { "type": "NVARCHAR(200)", "nullable": false },
+        "Category": { "type": "NVARCHAR(100)", "nullable": true },
+        "Price": { "type": "DECIMAL(18,2)", "nullable": false },
+        "IsActive": { "type": "BIT", "nullable": false }
+      },
+      "indexes": [
+        { "name": "PK_Products", "columns": ["ProductID"], "is_unique": true }
+      ],
+      "foreign_keys": []
+    }
+  }
+}
